@@ -3,6 +3,5 @@ import wx
 
 if __name__ == "__main__":
     app = wx.App(False)
-    frame = SalesForm(None, "POS System")
-    frame.Show()
+    frame = SalesForm(None, "SINGHE LANKA TILE CENTER")
     app.MainLoop()
