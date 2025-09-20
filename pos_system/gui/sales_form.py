@@ -1,10 +1,13 @@
 import wx
 from ..services.sales_service import add_item_to_sale, save_sale
+from ..services.product_service import get_all_products
 import wx.adv 
 
 class SalesForm(wx.Frame):
     def __init__(self, parent, title):
         super().__init__(parent, title=title, size=(850, 700))
+        
+        self.products = get_all_products()  # Load products from DB
 
         # Example: add button
         self.panel = wx.Panel(self)
@@ -41,8 +44,8 @@ class SalesForm(wx.Frame):
         item_grid.Add(wx.StaticText(self.panel, label="Item Code/Name:"), 0, wx.ALIGN_CENTER_VERTICAL)
         self.item_code = wx.TextCtrl(self.panel)
         item_grid.Add(self.item_code, 1, wx.EXPAND)
-        #self.item_code.Bind(wx.EVT_TEXT, self.on_search)
-        #self.item_code.Bind(wx.EVT_KILL_FOCUS, self.on_leave)
+        self.item_code.Bind(wx.EVT_TEXT, self.on_search)
+        self.item_code.Bind(wx.EVT_KILL_FOCUS, self.on_leave)
         item_grid.Add(wx.StaticText(self.panel, label="Description:"), 0, wx.ALIGN_CENTER_VERTICAL)
         self.item_desc = wx.TextCtrl(self.panel)
         item_grid.Add(self.item_desc, 1, wx.EXPAND)
@@ -74,7 +77,7 @@ class SalesForm(wx.Frame):
         search_sizer.Add(self.search_list, 1, wx.ALL | wx.EXPAND, 5)
         self.search_list.SetMinSize(( -1, 60 ))
         main_sizer.Add(search_sizer, 1, wx.ALL | wx.EXPAND, 10)
-        #self.search_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_search_item_click) 
+        self.search_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_search_item_click) 
 
 
         # Sales List
@@ -113,10 +116,10 @@ class SalesForm(wx.Frame):
         self.panel.SetSizer(main_sizer)
 
         # Bind events
-        #self.add_btn.Bind(wx.EVT_BUTTON, self.on_add_item)
-        #self.save_btn.Bind(wx.EVT_BUTTON, self.on_save_sale)
-        #self.clear_btn.Bind(wx.EVT_BUTTON, self.on_clear)
-        #self.populate_product_list()
+        self.add_btn.Bind(wx.EVT_BUTTON, self.on_add_item)
+        self.save_btn.Bind(wx.EVT_BUTTON, self.on_save_sale)
+        self.clear_btn.Bind(wx.EVT_BUTTON, self.on_clear)
+        self.populate_product_list()
         self.Centre()
         self.Show()
 
@@ -128,3 +131,96 @@ class SalesForm(wx.Frame):
 
     def on_save(self, event):
         save_sale()
+
+    def on_leave(self, event):
+        if self.search_list.GetItemCount() > 0:
+            item_name = self.search_list.GetItemText(0,0)
+            item_desc = self.search_list.GetItemText(0,1)
+            item_price = self.search_list.GetItemText(0,3).replace("Rs:","")
+            self.item_code.SetValue(item_name)
+            self.item_desc.SetValue(item_desc)
+            self.item_price.SetValue(item_price)
+            self.item_price.SetFocus()
+        event.Skip()
+
+    def populate_product_list(self, filter_text=""):
+        """Populate the product list, optionally filtering by search text."""
+        self.search_list.DeleteAllItems()
+        filter_lower = filter_text.lower()
+        
+        for item in self.products:
+            if filter_lower in item[2].lower():
+                index = self.search_list.InsertItem(self.search_list.GetItemCount(), item[2])
+                self.search_list.SetItem(index, 1, item[3])
+                self.search_list.SetItem(index, 2, f"Rs:{item[4]}")
+                self.search_list.SetItem(index, 3, f"Rs:{item[5]}")
+        self.search_list.Select(0)  # Select the first item by default
+        self.search_list.Focus(0)
+
+    def on_search(self, event):
+        search_term = self.item_code.GetValue()
+        self.item_desc.SetValue("")
+        self.item_price.SetValue("")
+        self.populate_product_list(search_term)
+
+    def on_search_item_click(self, event):
+        index = event.GetIndex()
+        item_name = self.search_list.GetItemText(index, 0)
+        item_desc = self.search_list.GetItemText(index, 1)
+        item_price = self.search_list.GetItemText(index, 3).replace("Rs:", "")  # take selling price column
+
+        self.item_code.SetValue(item_name)
+        self.item_desc.SetValue(item_desc)
+        self.item_price.SetValue(item_price)
+        self.item_qty.SetFocus()
+
+    def on_add_item(self, event):
+        code = self.item_code.GetValue().strip()
+        desc = self.item_desc.GetValue().strip()
+        qty = self.item_qty.GetValue()
+        if not code or not desc or qty < 1:
+            wx.MessageBox("Please enter valid item details.", "Error", wx.ICON_ERROR)
+            return
+        # For demo, set price as 10.0 per item
+        try:
+            price = float(self.item_price.GetValue())
+        except ValueError:
+            wx.MessageBox("Invalid price entered.", "Error", wx.ICON_ERROR)
+            return
+    
+        total = qty * price
+        idx = self.sales_list.InsertItem(self.sales_list.GetItemCount(), code)
+        self.sales_list.SetItem(idx, 1, desc)
+        self.sales_list.SetItem(idx, 2, str(qty))
+        self.sales_list.SetItem(idx, 3, f"Rs:{price:.2f}")
+        self.sales_list.SetItem(idx, 4, f"Rs:{total:.2f}")
+        self.update_total()
+        self.item_code.SetValue("")
+        self.item_desc.SetValue("")
+        self.item_qty.SetValue(1)
+        self.item_code.SetFocus()
+
+    def update_total(self):
+        total = 0.0
+        for i in range(self.sales_list.GetItemCount()):
+            val = self.sales_list.GetItemText(i, 4).replace('Rs:', '')
+            try:
+                total += float(val)
+            except ValueError:
+                pass
+        self.total_label.SetLabel(f"Total: Rs:{total:.2f}")
+
+    def on_save_sale(self, event):
+        if self.sales_list.GetItemCount() == 0:
+            wx.MessageBox("No items to save.", "Info", wx.ICON_INFORMATION)
+            return
+        wx.MessageBox("Sale saved successfully!", "Success", wx.ICON_INFORMATION)
+        self.on_clear(None)
+
+    def on_clear(self, event):
+        self.cust_name.SetValue("")
+        self.item_code.SetValue("")
+        self.item_desc.SetValue("")
+        self.item_qty.SetValue(1)
+        self.sales_list.DeleteAllItems()
+        self.update_total()
