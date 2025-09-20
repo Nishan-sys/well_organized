@@ -12,7 +12,10 @@ def add_item_to_sale(item_code, qty):
 
 def save_sale():
     sale_id = insert_sale()
+    print(f"New sale created with ID: {sale_id}")
+    '''
     for item in cart:
         item_code, qty, price, total = item
         insert_sale_item(sale_id, item_code, qty, price, total)
     print("Sale saved!")
+'''

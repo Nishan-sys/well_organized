@@ -44,8 +44,7 @@ class SalesForm(wx.Frame):
         item_grid.Add(wx.StaticText(self.panel, label="Item Code/Name:"), 0, wx.ALIGN_CENTER_VERTICAL)
         self.item_code = wx.TextCtrl(self.panel)
         item_grid.Add(self.item_code, 1, wx.EXPAND)
-        self.item_code.Bind(wx.EVT_TEXT, self.on_search)
-        self.item_code.Bind(wx.EVT_KILL_FOCUS, self.on_leave)
+        
         item_grid.Add(wx.StaticText(self.panel, label="Description:"), 0, wx.ALIGN_CENTER_VERTICAL)
         self.item_desc = wx.TextCtrl(self.panel)
         item_grid.Add(self.item_desc, 1, wx.EXPAND)
@@ -77,7 +76,7 @@ class SalesForm(wx.Frame):
         search_sizer.Add(self.search_list, 1, wx.ALL | wx.EXPAND, 5)
         self.search_list.SetMinSize(( -1, 60 ))
         main_sizer.Add(search_sizer, 1, wx.ALL | wx.EXPAND, 10)
-        self.search_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_search_item_click) 
+        
 
 
         # Sales List
@@ -116,6 +115,9 @@ class SalesForm(wx.Frame):
         self.panel.SetSizer(main_sizer)
 
         # Bind events
+        self.search_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_search_item_click) 
+        self.item_code.Bind(wx.EVT_TEXT, self.on_search)
+        self.item_code.Bind(wx.EVT_KILL_FOCUS, self.on_leave)
         self.add_btn.Bind(wx.EVT_BUTTON, self.on_add_item)
         self.save_btn.Bind(wx.EVT_BUTTON, self.on_save_sale)
         self.clear_btn.Bind(wx.EVT_BUTTON, self.on_clear)
@@ -133,15 +135,16 @@ class SalesForm(wx.Frame):
         save_sale()
 
     def on_leave(self, event):
-        if self.search_list.GetItemCount() > 0:
-            item_name = self.search_list.GetItemText(0,0)
-            item_desc = self.search_list.GetItemText(0,1)
-            item_price = self.search_list.GetItemText(0,3).replace("Rs:","")
-            self.item_code.SetValue(item_name)
-            self.item_desc.SetValue(item_desc)
-            self.item_price.SetValue(item_price)
-            self.item_price.SetFocus()
-        event.Skip()
+        if self.item_code.GetValue():
+            if self.search_list.GetItemCount() > 0:
+                item_name = self.search_list.GetItemText(0,0)
+                item_desc = self.search_list.GetItemText(0,1)
+                item_price = self.search_list.GetItemText(0,3).replace("Rs:","")
+                self.item_code.SetValue(item_name)
+                self.item_desc.SetValue(item_desc)
+                self.item_price.SetValue(item_price)
+                self.item_price.SetFocus()
+            event.Skip()
 
     def populate_product_list(self, filter_text=""):
         """Populate the product list, optionally filtering by search text."""
@@ -154,6 +157,7 @@ class SalesForm(wx.Frame):
                 self.search_list.SetItem(index, 1, item[3])
                 self.search_list.SetItem(index, 2, f"Rs:{item[4]}")
                 self.search_list.SetItem(index, 3, f"Rs:{item[5]}")
+                self.search_list.SetItemData(index, item[0])
         self.search_list.Select(0)  # Select the first item by default
         self.search_list.Focus(0)
 
@@ -166,6 +170,7 @@ class SalesForm(wx.Frame):
 
     def on_search_item_click(self, event):
         index = event.GetIndex()
+        item_id = self.search_list.GetItemData(index)
         item_name = self.search_list.GetItemText(index, 0)
         item_desc = self.search_list.GetItemText(index, 1)
         item_price = self.search_list.GetItemText(index, 3).replace("Rs:", "")  # take selling price column
@@ -188,13 +193,27 @@ class SalesForm(wx.Frame):
         except ValueError:
             wx.MessageBox("Invalid price entered.", "Error", wx.ICON_ERROR)
             return
-    
-        total = qty * price
-        idx = self.sales_list.InsertItem(self.sales_list.GetItemCount(), code)
-        self.sales_list.SetItem(idx, 1, desc)
-        self.sales_list.SetItem(idx, 2, str(qty))
-        self.sales_list.SetItem(idx, 3, f"Rs:{price:.2f}")
-        self.sales_list.SetItem(idx, 4, f"Rs:{total:.2f}")
+        
+        found = False
+        for row in range(self.sales_list.GetItemCount()):
+            if self.sales_list.GetItemText(row) == code:
+                # Update existing item
+                existing_qty = int(self.sales_list.GetItem(row, 2).GetText())
+                new_qty = existing_qty + qty
+                total = new_qty * price
+                self.sales_list.SetItem(row, 2, str(new_qty))
+                self.sales_list.SetItem(row, 4, f"Rs:{total:.2f}")
+                found = True
+                break
+
+        if not found:
+            # Insert new item
+            total = qty * price
+            idx = self.sales_list.InsertItem(self.sales_list.GetItemCount(), code)
+            self.sales_list.SetItem(idx, 1, desc)
+            self.sales_list.SetItem(idx, 2, str(qty))
+            self.sales_list.SetItem(idx, 3, f"Rs:{price:.2f}")
+            self.sales_list.SetItem(idx, 4, f"Rs:{total:.2f}")
         self.update_total()
         self.item_code.SetValue("")
         self.item_desc.SetValue("")
@@ -215,6 +234,7 @@ class SalesForm(wx.Frame):
         if self.sales_list.GetItemCount() == 0:
             wx.MessageBox("No items to save.", "Info", wx.ICON_INFORMATION)
             return
+        save_sale()
         wx.MessageBox("Sale saved successfully!", "Success", wx.ICON_INFORMATION)
         self.on_clear(None)
 

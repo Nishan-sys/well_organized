@@ -3,7 +3,7 @@ from pos_system.database.db_connection import get_connection
 def insert_sale():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO sales (date) VALUES (datetime('now'))")
+    cur.execute("INSERT INTO sales (customer_name,invoice_no,date,total) VALUES (?, ?, ?, ?)", ("Walk-in", "INV0001", "2024-01-01", 0))
     sale_id = cur.lastrowid
     conn.commit()
     conn.close()
