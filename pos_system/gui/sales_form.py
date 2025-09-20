@@ -162,6 +162,7 @@ class SalesForm(wx.Frame):
         self.item_desc.SetValue("")
         self.item_price.SetValue("")
         self.populate_product_list(search_term)
+        #testing comment
 
     def on_search_item_click(self, event):
         index = event.GetIndex()
