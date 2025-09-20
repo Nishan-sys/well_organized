@@ -1,8 +1,8 @@
 import wx
-from ..services.sales_service import add_item_to_sale, save_sale
+from ..services.sales_service import add_item_to_sale, save_sale, generate_invoice_number
 from ..services.product_service import get_all_products
 import wx.adv 
-
+from datetime import datetime
 class SalesForm(wx.Frame):
     def __init__(self, parent, title):
         super().__init__(parent, title=title, size=(850, 700))
@@ -23,19 +23,38 @@ class SalesForm(wx.Frame):
         main_sizer.Add(title_text, 0, wx.ALIGN_CENTER | wx.TOP, 20)
 
         # Customer Info
+        # --- Customer Info Section ---
         cust_box = wx.StaticBox(self.panel, label="Customer Info")
         cust_box.SetForegroundColour('#1e8449')
         cust_sizer = wx.StaticBoxSizer(cust_box, wx.HORIZONTAL)
-        cust_grid = wx.FlexGridSizer(2, 2, 10, 10)
+
+        # Use FlexGridSizer with 1 row and 6 columns (Label + Field for each)
+        cust_grid = wx.FlexGridSizer(1, 6, 10, 10)
+
+        # --- Invoice Number ---
+        cust_grid.Add(wx.StaticText(self.panel, label="Invoice No:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.invoice_no = wx.TextCtrl(self.panel, style=wx.TE_READONLY)  # read-only so user can't edit
+        self.new_invoice_id = generate_invoice_number()
+        self.invoice_no.SetValue(f"INV{self.new_invoice_id:05d}")  # Placeholder text
+        cust_grid.Add(self.invoice_no, 1, wx.EXPAND)
+
+        # --- Customer Name ---
         cust_grid.Add(wx.StaticText(self.panel, label="Customer Name:"), 0, wx.ALIGN_CENTER_VERTICAL)
         self.cust_name = wx.TextCtrl(self.panel)
         cust_grid.Add(self.cust_name, 1, wx.EXPAND)
+
+        # --- Date ---
         cust_grid.Add(wx.StaticText(self.panel, label="Date:"), 0, wx.ALIGN_CENTER_VERTICAL)
         self.date_picker = wx.adv.DatePickerCtrl(self.panel)
         cust_grid.Add(self.date_picker, 1, wx.EXPAND)
+
+        # Add grid to box
         cust_sizer.Add(cust_grid, 1, wx.ALL | wx.EXPAND, 10)
+
+        # Add box to main layout
         main_sizer.Add(cust_sizer, 0, wx.ALL | wx.EXPAND, 15)
 
+       
         # Item Entry
         item_box = wx.StaticBox(self.panel, label="Add Item")
         item_box.SetForegroundColour('#b9770e')
@@ -234,7 +253,12 @@ class SalesForm(wx.Frame):
         if self.sales_list.GetItemCount() == 0:
             wx.MessageBox("No items to save.", "Info", wx.ICON_INFORMATION)
             return
-        save_sale()
+        sale_date = self.date_picker.GetValue()  # wx.DateTime
+        py_date = sale_date.FormatISODate()  # 'YYYY-MM-DD'
+        sale_main_data = {"customer_name": self.cust_name.GetValue().strip() or "Walk-in",
+                          "date":py_date,
+                          "total": self.total_label.GetLabel().replace("Total: Rs:", "")}
+        save_sale(sale_main_data)
         wx.MessageBox("Sale saved successfully!", "Success", wx.ICON_INFORMATION)
         self.on_clear(None)
 
