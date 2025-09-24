@@ -1,6 +1,7 @@
 import wx
-from ..services.sales_service import add_item_to_sale, save_sale, generate_invoice_number
+from ..services.sales_service import save_sale, generate_invoice_number
 from ..services.product_service import get_all_products
+from ..services.sale_items_service import save_sale_items
 import wx.adv 
 from datetime import datetime
 class SalesForm(wx.Frame):
@@ -258,7 +259,13 @@ class SalesForm(wx.Frame):
         sale_main_data = {"customer_name": self.cust_name.GetValue().strip() or "Walk-in",
                           "date":py_date,
                           "total": self.total_label.GetLabel().replace("Total: Rs:", "")}
-        save_sale(sale_main_data)
+        sale_id = save_sale(sale_main_data)
+        items = []
+        for i in range(self.sales_list.GetItemCount()):
+            item_id = int(self.sales_list.GetItemText(i, 0))
+            qty = int(self.sales_list.GetItemText(i, 2))
+            price = float(self.sales_list.GetItemText(i, 3))
+            items.append({"item_id": item_id, "qty": qty, "price": price})
         wx.MessageBox("Sale saved successfully!", "Success", wx.ICON_INFORMATION)
         self.on_clear(None)
 
