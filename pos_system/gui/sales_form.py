@@ -9,7 +9,7 @@ class SalesForm(wx.Frame):
         super().__init__(parent, title=title, size=(850, 700))
         
         self.products = get_all_products()  # Load products from DB
-
+        self.item_id_hidden = None
         # Example: add button
         self.panel = wx.Panel(self)
         self.panel.SetBackgroundColour('#f0f4f7')
@@ -82,13 +82,13 @@ class SalesForm(wx.Frame):
         main_sizer.Add(item_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
 
-                # Item Search Results
+        # Item Search Results
         search_box = wx.StaticBox(self.panel, label="Search Results")
         search_box.SetForegroundColour('#8e44ad')   # purple for distinction
         search_sizer = wx.StaticBoxSizer(search_box, wx.VERTICAL)
 
         self.search_list = wx.ListCtrl(self.panel, style=wx.LC_REPORT | wx.BORDER_SUNKEN)
-        self.search_list.InsertColumn(0, "Item Name", width=150)
+        self.search_list.InsertColumn(0, "Item Code/Name", width=150)
         self.search_list.InsertColumn(1, "Description", width=250)
         self.search_list.InsertColumn(2, "Cost", width=100)
         self.search_list.InsertColumn(3, "Price", wx.LIST_FORMAT_RIGHT, 100)
@@ -104,11 +104,11 @@ class SalesForm(wx.Frame):
         list_box.SetForegroundColour('#2874a6')
         list_sizer = wx.StaticBoxSizer(list_box, wx.VERTICAL)
         self.sales_list = wx.ListCtrl(self.panel, style=wx.LC_REPORT | wx.BORDER_SUNKEN)
-        self.sales_list.InsertColumn(0, "Item Code", width=90)
-        self.sales_list.InsertColumn(1, "Description", width=180)
+        self.sales_list.InsertColumn(0, "Item Code/Name", width=150)
+        self.sales_list.InsertColumn(1, "Description", width=250)
         self.sales_list.InsertColumn(2, "Qty", wx.LIST_FORMAT_CENTER, 60)
-        self.sales_list.InsertColumn(3, "Price", wx.LIST_FORMAT_RIGHT, 80)
-        self.sales_list.InsertColumn(4, "Total", wx.LIST_FORMAT_RIGHT, 80)
+        self.sales_list.InsertColumn(3, "Price", wx.LIST_FORMAT_RIGHT, 100)
+        self.sales_list.InsertColumn(4, "Total", wx.LIST_FORMAT_RIGHT, 100)
         list_sizer.Add(self.sales_list, 1, wx.ALL | wx.EXPAND, 5)
         main_sizer.Add(list_sizer, 1, wx.ALL | wx.EXPAND, 10)
 
@@ -145,12 +145,7 @@ class SalesForm(wx.Frame):
         self.Centre()
         self.Show()
 
-    def on_add_item(self, event):
-        # Example data from GUI inputs
-        item_code = "A101"
-        qty = 2
-        add_item_to_sale(item_code, qty)
-
+   
     def on_save(self, event):
         save_sale()
 
@@ -190,11 +185,10 @@ class SalesForm(wx.Frame):
 
     def on_search_item_click(self, event):
         index = event.GetIndex()
-        item_id = self.search_list.GetItemData(index)
         item_name = self.search_list.GetItemText(index, 0)
         item_desc = self.search_list.GetItemText(index, 1)
         item_price = self.search_list.GetItemText(index, 3).replace("Rs:", "")  # take selling price column
-
+        self.item_id_hidden = self.search_list.GetItemData(index)
         self.item_code.SetValue(item_name)
         self.item_desc.SetValue(item_desc)
         self.item_price.SetValue(item_price)
@@ -234,11 +228,13 @@ class SalesForm(wx.Frame):
             self.sales_list.SetItem(idx, 2, str(qty))
             self.sales_list.SetItem(idx, 3, f"Rs:{price:.2f}")
             self.sales_list.SetItem(idx, 4, f"Rs:{total:.2f}")
+            self.sales_list.SetItemData(idx,self.item_id_hidden)
         self.update_total()
         self.item_code.SetValue("")
         self.item_desc.SetValue("")
         self.item_qty.SetValue(1)
         self.item_code.SetFocus()
+        
 
     def update_total(self):
         total = 0.0
@@ -262,10 +258,11 @@ class SalesForm(wx.Frame):
         sale_id = save_sale(sale_main_data)
         items = []
         for i in range(self.sales_list.GetItemCount()):
-            item_id = int(self.sales_list.GetItemText(i, 0))
+            item_id = self.sales_list.GetItemData(i)
             qty = int(self.sales_list.GetItemText(i, 2))
-            price = float(self.sales_list.GetItemText(i, 3))
+            price = float(self.sales_list.GetItemText(i, 3).replace("Rs:", "").strip())
             items.append({"item_id": item_id, "qty": qty, "price": price})
+        save_sale_items(sale_id, items)
         wx.MessageBox("Sale saved successfully!", "Success", wx.ICON_INFORMATION)
         self.on_clear(None)
 
